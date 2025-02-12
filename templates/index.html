@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Weather Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Base Styles */
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #1e1e2f;
+            color: white;
+            margin: 0;
+            padding: 0;
+            transition: background-color 0.3s, color 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Light Mode Styles */
+        body.light-mode {
+            background-color: #f7f7f7;
+            color: #333;
+        }
+
+        body.light-mode h1,
+        body.light-mode .location,
+        body.light-mode .time,
+        body.light-mode .date {
+            color: #333;
+        }
+
+        body.light-mode .charts {
+            background-color: #f1f1f1;
+        }
+
+        body.light-mode .chart-container {
+            background-color: #ffffff;
+        }
+
+        /* Dark Mode Styles */
+        body {
+            background-color: #1e1e2f;
+            color: white;
+        }
+
+        body h1,
+        body .location,
+        body .time,
+        body .date {
+            color: white;
+        }
+
+        body .charts {
+            background-color: #2b2b3b;
+        }
+
+        body .chart-container {
+            background-color: #2b2b3b;
+        }
+
+        /* Flexbox Layout for Main Content */
+        .main-content {
+            display: flex;
+            flex-direction: row;
+            width: 90%;
+            margin-top: 30px;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        /* Map Styling */
+        #map {
+            height: 300px; /* Set height to match bar chart container */
+            width: 45%; /* Set width to match bar chart container */
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            margin-top: 20px;
+        }
+
+        /* Info Section Styling */
+        .info-container {
+            width: 45%;
+            text-align: left;
+            color: white;
+            margin-left: 30px;
+        }
+
+        .info-container .location,
+        .info-container .time,
+        .info-container .date {
+            font-size: 18px;
+        }
+
+        .light-mode .info-container {
+            color: #333;
+        }
+
+        /* Button to toggle light/dark mode */
+        .toggle-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #3e3e5d;
+            color: white;
+            border: none;
+            font-size: 30px;
+            cursor: pointer;
+            padding: 10px;
+            border-radius: 50%;
+            z-index: 9999;
+            transition: transform 0.3s;
+        }
+
+        .toggle-button.light-mode {
+            color: #f4f4f9;
+            background-color: #eaeaea;
+        }
+
+        /* Charts Styling */
+        .charts {
+            display: flex;
+            justify-content: space-between;
+            width: 90%;
+            margin-top: 40px;
+        }
+
+        .chart-container {
+            background: #2b2b3b;
+            padding: 15px;
+            border-radius: 10px;
+            width: 60%;  /* Increased width for larger bar chart */
+            height: 450px; /* Increased height for larger bar chart */
+            text-align: center; /* Center content in chart container */
+        }
+
+        .light-mode .chart-container {
+            background: #ffffff;
+        }
+
+        /* Styling untuk waktu */
+        #currentTime {
+            font-size: 50px;  /* Membesarkan ukuran font jam */
+            font-weight: 500;
+        }
+
+        /* Styling untuk suhu */
+        #currentTemperature {
+            font-size: 24px;
+            font-weight: 400;
+            margin-top: 10px;
+        }
+
+        /* Styling untuk tanggal */
+        #currentDate {
+            font-size: 20px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>⛈️Weather IoT Dashboard⛈️</h1>
+
+    <!-- Toggle Button for Light/Dark Mode -->
+    <button class="toggle-button dark-mode" onclick="toggleMode()">🌙</button>
+
+    <!-- Main Content Area (Map + Info Section) -->
+    <div class="main-content">
+        <!-- Map Box -->
+        <div id="map"></div>
+
+        <!-- Info Section -->
+        <div class="info-container">
+            <div class="location" id="currentLocation"><span class="emoji">📍</span>Loading location...</div>
+            <div class="time" id="currentTime"><span class="emoji">🕒</span>Loading time...</div>
+            <div class="date" id="currentDate"><span class="emoji">📅</span>Loading date...</div>
+            <div id="currentTemperature"><span class="emoji">🌡️</span>Loading temperature...</div>
+        </div>
+    </div>
+
+    <!-- Weather Data Charts -->
+    <div class="charts">
+        <div class="chart-container">
+            <canvas id="temperatureChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <canvas id="humidityChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Initialize the map centered on Jawa Timur (Indonesia)
+        var map = L.map('map').setView([-7.2575, 112.7521], 8);  // Jawa Timur
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        // Fetch weather data from your API
+        async function fetchWeatherData() {
+            const response = await fetch('/api/weather');
+            const data = await response.json();
+
+            // Add markers for each city in the data
+            for (const [city, info] of Object.entries(data)) {
+                const marker = L.marker([info.lat, info.lon]).addTo(map);
+                let weatherImage = "";
+
+                if (info.weather === "clear") {
+                    weatherImage = "🌞";
+                } else if (info.weather === "rain") {
+                    weatherImage = "🌧️";
+                } else if (info.weather === "storm") {
+                    weatherImage = "⛈️";
+                }
+
+                // Show popup with weather information for each city
+                marker.bindPopup(`
+                    <b>${city}</b><br>
+                    ${weatherImage}<br>
+                    Temp: ${info.temperature}°C<br>
+                    Humidity: ${info.humidity}%<br>
+                    Condition: ${info.weather.charAt(0).toUpperCase() + info.weather.slice(1)}
+                `);
+            }
+        }
+
+        // Call the fetchWeatherData function
+        fetchWeatherData();
+
+        // Setup for Temperature and Humidity charts
+        var tempChart = new Chart(document.getElementById('temperatureChart').getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Temperature (°C)',
+                    data: [],
+                    backgroundColor: ['#B0D3FF', '#7B9EEC', '#517FB4', '#3A6B8C', '#1C4A60', '#12313E', '#0A2633']
+                }]
+            },
+        });
+
+        var humidityChart = new Chart(document.getElementById('humidityChart').getContext('2d'), {
+            type: 'pie',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Humidity (%)',
+                    data: [],
+                    backgroundColor: ['#B0D3FF', '#7B9EEC', '#517FB4', '#3A6B8C', '#1C4A60', '#12313E', '#0A2633']
+                }]
+            },
+        });
+
+        // Update charts with weather data
+        async function updateCharts() {
+            const response = await fetch('/api/weather');
+            const data = await response.json();
+
+            tempChart.data.labels = Object.keys(data);
+            tempChart.data.datasets[0].data = Object.values(data).map(info => info.temperature);
+            tempChart.update();
+
+            humidityChart.data.labels = Object.keys(data);
+            humidityChart.data.datasets[0].data = Object.values(data).map(info => info.humidity);
+            humidityChart.update();
+        }
+
+        // Call the updateCharts function
+        updateCharts();
+
+        // Display current time
+        function displayCurrentTime() {
+            const currentTime = new Date().toLocaleTimeString();
+            document.getElementById('currentTime').innerHTML = `<span class="emoji">🕒</span>${currentTime}`;
+        }
+
+        // Display current date including the day of the week
+        function displayCurrentDate() {
+            const currentDate = new Date().toLocaleDateString('id-ID', {
+                weekday: 'long', // Menampilkan hari
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+            document.getElementById('currentDate').innerHTML = `<span class="emoji">📅</span>${currentDate}`;
+        }
+
+        // Display current location and temperature
+        async function displayCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(async function(position) {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+
+                    // Fetch weather data based on the user's location
+                    const weatherResponse = await fetch(`/api/weather?lat=${lat}&lon=${lon}`);
+                    const weatherData = await weatherResponse.json();
+
+                    // Display location and temperature
+                    document.getElementById('currentLocation').innerHTML = `<span class="emoji">📍</span>Latitude: ${lat}, Longitude: ${lon}`;
+                    document.getElementById('currentTemperature').innerHTML = `<span class="emoji">🌡️</span>${weatherData.temperature}°C`;
+
+                    // Set marker at user's current location
+                    L.marker([lat, lon]).addTo(map)
+                        .bindPopup("You are here! 🌍")
+                        .openPopup();
+                });
+            } else {
+                document.getElementById('currentLocation').innerHTML = `<span class="emoji">📍</span>Location not available`;
+                document.getElementById('currentTemperature').innerHTML = `<span class="emoji">🌡️</span>Temperature not available`;
+            }
+        }
+
+        // Update time, date, and location every second
+        setInterval(function() {
+            displayCurrentTime();
+            displayCurrentDate();
+            displayCurrentLocation();
+        }, 1000);
+
+        // Toggle Light/Dark Mode
+        function toggleMode() {
+            const button = document.querySelector('.toggle-button');
+            document.body.classList.toggle("light-mode");
+
+            if (document.body.classList.contains("light-mode")) {
+                button.innerHTML = "🌞"; // Sun emoji for light mode
+                button.classList.remove('dark-mode');
+                button.classList.add('light-mode');
+            } else {
+                button.innerHTML = "🌙"; // Moon emoji for dark mode
+                button.classList.remove('light-mode');
+                button.classList.add('dark-mode');
+            }
+        }
+    </script>
+</body>
+</html>

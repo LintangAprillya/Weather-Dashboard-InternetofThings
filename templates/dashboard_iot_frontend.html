@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IoT Dashboard - Jawa Timur</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #2b2b3b;
+            color: white;
+            margin: 0;
+            padding: 0;
+        }
+        h1 {
+            text-align: center;
+            margin-top: 20px;
+        }
+        #map {
+            height: 500px;
+            width: 80%;
+            margin: 20px auto;
+            border-radius: 10px;
+        }
+        .chart-container {
+            width: 80%;
+            margin: 20px auto;
+            background: #2b2b3b;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        canvas {
+            width: 100% !important;
+        }
+    </style>
+</head>
+<body>
+    <h1>IoT Dashboard - Jawa Timur</h1>
+    <div id="map"></div>
+    <div class="chart-container">
+        <canvas id="weatherChart"></canvas>
+    </div>
+
+    <script>
+        var map = L.map('map').setView([-7.2575, 112.7521], 7);  // Peta Jawa Timur
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        var weatherChart;  // Chart.js instance
+
+        // Data statis untuk cuaca di kota-kota Jawa Timur
+        const data = {
+            "Surabaya": { "lat": -7.2575, "lon": 112.7521, "temperature": 30, "humidity": 70, "air_quality": 60 },
+            "Malang": { "lat": -7.9667, "lon": 112.6173, "temperature": 28, "humidity": 75, "air_quality": 55 },
+            "Kediri": { "lat": -7.8449, "lon": 112.0090, "temperature": 29, "humidity": 80, "air_quality": 65 }
+        };
+
+        Object.keys(data).forEach(city => {
+            let weather = data[city];
+            L.marker([weather.lat, weather.lon]).addTo(map)
+                .bindPopup(`<b>${city}</b><br>Suhu: ${weather.temperature}°C<br>Kelembapan: ${weather.humidity}%<br>Kualitas Udara: ${weather.air_quality}`)
+                .on('click', () => updateChart(city, weather));
+        });
+
+        function updateChart(city, weather) {
+            var ctx = document.getElementById('weatherChart').getContext('2d');
+
+            if (weatherChart) {
+                weatherChart.destroy();  // Hapus chart yang lama
+            }
+
+            weatherChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Suhu (°C)', 'Kelembapan (%)', 'Kualitas Udara'],
+                    datasets: [{
+                        label: city,
+                        data: [weather.temperature, weather.humidity, weather.air_quality],
+                        backgroundColor: ['red', 'blue', 'green']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'top' },
+                        tooltip: { callbacks: { label: function(tooltipItem) { return tooltipItem.label + ': ' + tooltipItem.raw; } } }
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
