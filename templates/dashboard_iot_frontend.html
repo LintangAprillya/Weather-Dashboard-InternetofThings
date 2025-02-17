@@ -3,93 +3,661 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IoT Dashboard - Jawa Timur</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>⛈️ Weather IoT Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/plotly.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
     <style>
+        /* Base Styles */
         body {
-            font-family: Arial, sans-serif;
-            background-color: #2b2b3b;
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(to bottom, #6ec1e4, #1c3c64);
             color: white;
             margin: 0;
             padding: 0;
+            transition: background-color 0.3s, color 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
-        h1 {
-            text-align: center;
-            margin-top: 20px;
+
+        /* Light Mode Styles */
+        body.light-mode {
+            background-color: #f7f7f7;
+            color: #333;
         }
+
+        body.light-mode h1,
+        body.light-mode .location,
+        body.light-mode .time,
+        body.light-mode .date,
+        body.light-mode #currentTemperature,
+        body.light-mode #currentHumidity {
+            color: #333;
+        }
+
+        body.light-mode .charts {
+            background-color: #f1f1f1;
+        }
+
+        body.light-mode .chart-container {
+            background-color: #ffffff;
+        }
+
+        /* Temperature and Humidity Styling */
+        .temp-humidity {
+            display: flex;
+            justify-content: flex-start;
+            align-items: center;
+            margin-top: 10px;
+            gap: 20px;
+        }
+
+        #currentTemperature,
+        #currentHumidity {
+            font-size: 22px;
+            font-weight: 400;
+            margin-top: 10px;
+        }
+
+        /* Date Box Styling */
+        .date-box {
+            font-size: 18px;
+            color: white;
+            margin-top: 10px;
+        }
+
+        body.light-mode .date-box {
+            color: black;
+        }
+
+        /* Flexbox Layout for Main Content */
+        .main-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            width: 90%;
+            margin-top: 30px;
+            gap: 20px;
+        }
+
+        /* Map Styling */
         #map {
-            height: 500px;
-            width: 80%;
-            margin: 20px auto;
+            height: 265px;
+            width: 48%;
             border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
-        .chart-container {
-            width: 80%;
-            margin: 20px auto;
-            background: #2b2b3b;
+
+        /* Info Section Styling */
+        .info-container {
+            width: 48%;
+            text-align: center;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             padding: 20px;
             border-radius: 10px;
+            background-color: #333;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
         }
-        canvas {
-            width: 100% !important;
+
+        body.light-mode .info-container {
+            background-color: #fff;
+            color: #333;
         }
+
+        /* Button to toggle light/dark mode */
+        .toggle-button {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: #3e3e5d;
+            color: white;
+            border: none;
+            font-size: 30px;
+            cursor: pointer;
+            padding: 10px;
+            border-radius: 50%;
+            z-index: 9999;
+            transition: transform 0.3s;
+        }
+
+        .toggle-button.light-mode {
+            color: #f4f4f9;
+            background-color: #eaeaea;
+        }
+
+        /* Charts Styling */
+        .charts {
+            display: flex;
+            justify-content: space-between;
+            width: 90%;
+            margin-top: 40px;
+            text-align: center;
+        }
+
+        /* Chart Styling */
+        .chart-container {
+            background: #2b2b3b;
+            padding: 15px;
+            border-radius: 10px;
+            width: 60%;
+            height: 450px;
+            text-align: center;
+            margin-top: 30px;
+        }
+
+        .light-mode .chart-container {
+            background: #ffffff;
+        }
+
+        /* Styling untuk waktu */
+        #currentTime {
+            font-size: 50px;
+            font-weight: 500;
+            text-align: center;
+            width: 100%;
+            margin-top: 30px;
+        }
+
+        /* Styling untuk suhu */
+        #currentTemperature {
+            font-size: 22px;
+            font-weight: 400;
+            margin-top: 10px;
+            color: black;
+            margin-left: 20px;
+        }
+
+        /* Styling untuk kelembapan */
+        #currentHumidity {
+            font-size: 22px;
+            font-weight: 400;
+            margin-top: 10px;
+            color: black;
+            margin-left: 20px;
+        }
+
+        .chart-container {
+            width: 100%;
+            height: 400px;
+        }
+        #temperatureChart, #humidityChart {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Styling untuk Wind Speed */
+.wind-box {
+    font-size: 30px;  /* Membuat font lebih besar */
+    font-weight: bold;  /* Menebalkan tulisan */
+    margin-top: 90px;  /* Memberikan jarak antara kelembapan dan kecepatan angin */
+    margin-bottom: 30px; /* Menambah jarak bawah */
+    background: #333;  /* Gelap di mode gelap */
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    width: 45%;
+    margin-left: 0;  /* Menjaga agar tidak tumpang tindih dengan margin kiri */
+    clear: both; /* Menghindari tumpang tindih */
+}
+
+.wind-box .wind-label {
+    font-size: 36px;  /* Membuat font Wind Speed lebih besar */
+    font-weight: bold;  /* Menebalkan tulisan "Wind Speed" */
+    color: #333;  /* Warna hitam untuk "Wind Speed" di bright mode */
+}
+
+.wind-box .wind-speed {
+    font-size: 50px;  /* Membuat kecepatan angin lebih besar */
+    font-weight: bold;  /* Menebalkan angka kecepatan angin */
+    color: #1e90ff;  /* Warna biru agak terang untuk angka kecepatan angin */
+    margin-top: 30px;  /* Menambah jarak atas untuk menurunkan posisi Wind Speed */
+}
+
+/* Bright mode */
+body.light-mode .wind-box {
+    background-color: white;  /* Background putih di mode terang */
+}
+
+body.light-mode .wind-label {
+    color: black;  /* Tulisan Wind Speed menjadi hitam di mode terang */
+}
+
+/* Dark mode */
+body.dark-mode .wind-box {
+    background-color: #333;  /* Background gelap di mode gelap */
+}
+
+body.dark-mode .wind-label {
+    color: white;  /* Tulisan Wind Speed menjadi putih di mode gelap */
+}
+
+/* Emoji untuk Wind Speed */
+.wind-label::after {
+    content: " 🌬\️";  /* Menambahkan emoji angin setelah teks Wind Speed */
+}
+
+/* Air Quality Box Styling */
+.air-quality-box {
+    font-size: 30px;  /* Larger font size */
+    font-weight: bold;  /* Bold text */
+    margin-top: 90px;  /* Add some space between wind speed and air quality box */
+    margin-bottom: 30px; /* Add space at the bottom */
+    background: #333;  /* Dark background in dark mode */
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    width: 45%;
+    clear: both; /* Avoid overlapping with other boxes */
+}
+
+.air-quality-box .air-quality-label {
+    font-size: 36px;  /* Larger font size for Air Quality */
+    font-weight: bold;  /* Bold label */
+    color: black;  /* White color for label */
+}
+
+/* Air Quality Value Styling */
+.air-quality-box .air-quality-value {
+    font-size: 50px;  /* Larger font size for air quality value */
+    font-weight: bold;  /* Bold number */
+    margin-top: 20px;  /* Space between label and value */
+    color: #1e90ff;  /* Default color */
+}
+
+/* Air Quality Description Styling */
+.air-quality-box .air-quality-description {
+    font-size: 20px;
+    font-weight: normal;
+    margin-top: 10px;  /* Add some space between value and description */
+}
+
+/* Bright mode */
+body.light-mode .air-quality-box {
+    background-color: white;  /* White background in light mode */
+}
+
+body.light-mode .air-quality-value {
+    color: #1e90ff;  /* Blue for light mode */
+}
+
+/* Dark mode */
+body.dark-mode .air-quality-box {
+    background-color: #333;  /* Dark background in dark mode */
+}
+
+body.dark-mode .air-quality-value {
+    color: #1e90ff;  /* Blue for dark mode */
+}
+
+        /* Styling untuk Wind Speed dan Air Quality Boxes */
+.weather-boxes {
+    display: flex;
+    justify-content: space-between;
+    width: 90%;
+    margin-top: 40px;
+    gap: 20px;
+    text-align: center;
+}
+
+/* Styling untuk Wind Speed Box */
+.wind-box {
+    font-size: 30px;
+    font-weight: bold;
+    margin-top: 90px;
+    margin-bottom: 30px;
+    background: #333;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    width: 45%;
+}
+
+.wind-box .wind-label {
+    font-size: 36px;
+    font-weight: bold;
+    color: #333;
+}
+
+.wind-box .wind-speed {
+    font-size: 50px;
+    font-weight: bold;
+    color: #1e90ff;
+    margin-top: 30px;
+}
+
+/* Styling untuk Air Quality Box */
+.air-quality-box {
+    font-size: 30px;
+    font-weight: bold;
+    margin-top: 90px;
+    margin-bottom: 30px;
+    background: #333;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    width: 45%;
+}
+
+.air-quality-box .air-quality-label {
+    font-size: 36px;
+    font-weight: bold;
+    color: black;
+}
+
+.air-quality-box .air-quality-value {
+    font-size: 50px;
+    font-weight: bold;
+    margin-top: 20px;
+    color: #1e90ff;
+}
+
+.air-quality-box .air-quality-description {
+    font-size: 20px;
+    font-weight: normal;
+    margin-top: 10px;
+}
+
+/* Bright mode */
+body.light-mode .wind-box, body.light-mode .air-quality-box {
+    background-color: white;
+}
+
+body.light-mode .air-quality-value {
+    color: #1e90ff;
+}
+
+body.light-mode .wind-box .wind-label {
+    color: black;
+}
+
+body.light-mode .air-quality-box .air-quality-label {
+    color: black;
+}
+
+/* Dark mode */
+body.dark-mode .wind-box, body.dark-mode .air-quality-box {
+    background-color: #333;
+}
+
+body.dark-mode .wind-box .wind-label, body.dark-mode .air-quality-box .air-quality-label {
+    color: white;
+}
+
+body.dark-mode .air-quality-box .air-quality-value {
+    color: #1e90ff;
+}
+
     </style>
 </head>
 <body>
-    <h1>IoT Dashboard - Jawa Timur</h1>
-    <div id="map"></div>
-    <div class="chart-container">
-        <canvas id="weatherChart"></canvas>
+    <h1>⛈️Weather IoT Dashboard⛈️</h1>
+
+    <!-- Toggle Button for Light/Dark Mode -->
+    <button class="toggle-button" onclick="toggleMode()">🌙</button>
+
+    <!-- Main Content Area (Map + Info Section) -->
+    <div class="main-content">
+        <!-- Info Section -->
+        <div class="info-container">
+            <div class="location" id="currentLocation"><span class="emoji">📍</span>Loading location...</div>
+            <div class="time" id="currentTime"><span class="emoji">🕒</span>Loading time...</div>
+            <div class="date-box" id="currentDate"><span class="emoji">📅</span>Loading date...</div>
+            <div class="temp-humidity">
+                <div id="currentTemperature"><span class="emoji">🌡️</span>Loading temperature...</div>
+                <div id="currentHumidity"><span class="emoji">💧</span>Loading humidity...</div>
+            </div>
+        </div>
+
+        <!-- Map Box -->
+        <div id="map"></div>
     </div>
 
+           <!-- Wind Speed and Air Quality Box -->
+<div class="weather-boxes">
+    <!-- Wind Speed Box -->
+    <div class="wind-box">
+        <div class="wind-label">Wind Speed</div>
+        <div class="wind-speed" id="wind-speed">0</div>
+    </div>
+
+    <!-- Air Quality Box -->
+    <div class="air-quality-box">
+        <div class="air-quality-label">Air Quality</div>
+        <div class="air-zquality-value" id="air-quality-value">50 </div>
+        <div class="air-quality-description" id="air-quality-description"Very Good></div>
+    </div>
+</div>
+
+
+
+
     <script>
-        var map = L.map('map').setView([-7.2575, 112.7521], 7);  // Peta Jawa Timur
+        // Function to check and apply stored mode (light/dark)
+        function applyStoredMode() {
+            const mode = localStorage.getItem('theme');
+            if (mode === 'light') {
+                document.body.classList.add('light-mode');
+                document.querySelector('.toggle-button').classList.add('light-mode');
+            } else {
+                document.body.classList.remove('light-mode');
+                document.querySelector('.toggle-button').classList.remove('light-mode');
+            }
+        }
+
+        // Function to toggle between light and dark mode
+        function toggleMode() {
+            const isLightMode = document.body.classList.toggle('light-mode');
+            document.querySelector('.toggle-button').classList.toggle('light-mode');
+
+            // Store the mode in localStorage
+            localStorage.setItem('theme', isLightMode ? 'light' : 'dark');
+        }
+
+        // Apply stored mode when page is loaded
+        applyStoredMode();
+
+        // Initialize map with default view (in case geolocation fails)
+        var map = L.map('map').setView([-7.2575, 112.7521], 8);  // Jawa Timur, default view
+
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
 
-        var weatherChart;  // Chart.js instance
+        // Function to detect current location using Geolocation API
+        function detectLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    var lat = position.coords.latitude;
+                    var lon = position.coords.longitude;
 
-        // Data statis untuk cuaca di kota-kota Jawa Timur
-        const data = {
-            "Surabaya": { "lat": -7.2575, "lon": 112.7521, "temperature": 30, "humidity": 70, "air_quality": 60 },
-            "Malang": { "lat": -7.9667, "lon": 112.6173, "temperature": 28, "humidity": 75, "air_quality": 55 },
-            "Kediri": { "lat": -7.8449, "lon": 112.0090, "temperature": 29, "humidity": 80, "air_quality": 65 }
-        };
+                    // Update map to user's location
+                    map.setView([lat, lon], 13); // Zoom in on user's location
 
-        Object.keys(data).forEach(city => {
-            let weather = data[city];
-            L.marker([weather.lat, weather.lon]).addTo(map)
-                .bindPopup(`<b>${city}</b><br>Suhu: ${weather.temperature}°C<br>Kelembapan: ${weather.humidity}%<br>Kualitas Udara: ${weather.air_quality}`)
-                .on('click', () => updateChart(city, weather));
-        });
+                    // Add a marker to indicate the user's location
+                    L.marker([lat, lon]).addTo(map)
+                        .bindPopup("You are here!")
+                        .openPopup();
 
-        function updateChart(city, weather) {
-            var ctx = document.getElementById('weatherChart').getContext('2d');
+                    // Fetch weather data for user's location
+                    fetchWeatherData(lat, lon);
+                }, function(error) {
+                    alert("Geolocation failed: " + error.message);
+                });
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        }
 
-            if (weatherChart) {
-                weatherChart.destroy();  // Hapus chart yang lama
+        // Function to fetch weather data for the user's location
+        async function fetchWeatherData(lat, lon) {
+            const apiKey = 'bd472ce43fd35be91ff07757957ad714';  // Your OpenWeatherMap API key
+            const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${apiKey}&units=metric`;
+
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.cod !== 200) {
+                alert("Error fetching weather data.");
+                return;
             }
 
-            weatherChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['Suhu (°C)', 'Kelembapan (%)', 'Kualitas Udara'],
-                    datasets: [{
-                        label: city,
-                        data: [weather.temperature, weather.humidity, weather.air_quality],
-                        backgroundColor: ['red', 'blue', 'green']
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { position: 'top' },
-                        tooltip: { callbacks: { label: function(tooltipItem) { return tooltipItem.label + ': ' + tooltipItem.raw; } } }
-                    }
-                }
-            });
+            // Update weather info on page
+            const temperature = data.main.temp;
+            const cityName = data.name;
+            const humidity = data.main.humidity;
+
+            document.getElementById('currentTemperature').innerText = `🌡️Suhu ${temperature}°C`;
+            document.getElementById('currentLocation').innerText = `📍${cityName}`;
+            document.getElementById('currentHumidity').innerText = `💧Kelembapan ${humidity}%`;
+
+            updateTemperature(temperature);
         }
+
+        // Function to update temperature with appropriate emoji
+        function updateTemperature(temperature) {
+            let tempEmoji = '🌡️';  // Default emoji
+
+            if (temperature > 25) {
+                tempEmoji = '🌞';  // Matahari jika suhu lebih dari 25°C
+            } else if (temperature < 22) {
+                tempEmoji = '❄️';  // Salju jika suhu lebih rendah dari 22°C
+            }
+
+            // Update temperature with the appropriate emoji
+            document.getElementById('currentTemperature').innerText = `${tempEmoji} Suhu ${temperature}°C`;
+        }
+
+        // Function to update charts (Temperature & Humidity)
+        let hours = [];
+        let temperatureData = [];
+        let humidityData = [];
+
+        function updateCharts() {
+            const currentHour = new Date().getHours();
+            hours.push(currentHour);
+            temperatureData.push((Math.random() * 10 + 20).toFixed(1)); // Simulasi suhu antara 20-30°C
+            humidityData.push((Math.random() * 20 + 50).toFixed(1)); // Simulasi kelembapan antara 50-70%
+
+            if (hours.length > 24) {
+                hours.shift();
+                temperatureData.shift();
+                humidityData.shift();
+            }
+
+            const tempChartData = {
+                x: hours,
+                y: temperatureData,
+                type: 'line',
+                name: 'Temperature',
+                mode: 'lines',  // Update to show line instead of scatter
+                line: { color: 'rgba(255, 99, 132, 1)', shape: 'spline' }
+            };
+
+            const humidityChartData = {
+                x: hours,
+                y: humidityData,
+                type: 'line',
+                name: 'Humidity',
+                mode: 'lines',
+                line: { color: 'rgba(54, 162, 235, 1)', shape: 'spline' }
+            };
+
+            const layout = {
+                xaxis: { title: 'Time (hours)' },
+                yaxis: { title: 'Value' },
+            };
+
+            // Render the updated charts
+            Plotly.newPlot('temperatureChart', [tempChartData], layout);
+            Plotly.newPlot('humidityChart', [humidityChartData], layout);
+
+            // Update the charts every second
+            setTimeout(updateCharts,   10000);
+        }
+
+        window.onload = function() {
+            detectLocation();
+            updateCharts();
+            updateTimeAndDate();
+        };
+
+        function updateTimeAndDate() {
+            const now = new Date();
+            const dayNames = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+            const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+
+            const dayName = dayNames[now.getDay()];
+            const date = now.getDate();
+            const month = monthNames[now.getMonth()];
+            const year = now.getFullYear();
+            const time = now.toLocaleTimeString();
+
+            document.getElementById('currentDate').innerText = `${dayName}, ${date} ${month} ${year}`;
+            document.getElementById('currentTime').innerText = `${time}`;
+        }
+        // Update time every 1000 milliseconds (1 second)
+        setInterval(updateTimeAndDate, 1000);
+
+        function getRandomValue(min, max) {
+            return (Math.random() * (max - min) + min).toFixed(1);
+        }
+
+        // Function to generate a random wind speed between a min and max value
+    function generateRandomWindSpeed() {
+        return Math.floor(Math.random() * (30 - 5 + 1)) + 5;  // Random value between 10 and 100 km/h
+    }
+
+    function updateWindSpeed() {
+    const windSpeedElement = document.getElementById('wind-speed');
+    if (windSpeedElement) {  // Memastikan elemen ada
+        const randomSpeed = generateRandomWindSpeed();
+        windSpeedElement.textContent = randomSpeed + ' km/h';
+    }
+}
+
+// Mengupdate setiap 2 detik
+setInterval(updateWindSpeed, 2000);
+
+
+        // Function to generate a random air quality index between 0 and 200
+function generateRandomAirQuality() {
+    return Math.floor(Math.random() * (200 + 1));  // Random value between 0 and 200
+}
+
+// Function to update air quality box dynamically
+function updateAirQuality() {
+    const airQualityElement = document.getElementById('air-quality-value');
+    const airQualityDescription = document.getElementById('air-quality-description');
+
+    if (airQualityElement && airQualityDescription) {
+        const randomAirQuality = generateRandomAirQuality();
+        airQualityElement.textContent = randomAirQuality;
+
+        // Update the air quality description and color based on value
+        if (randomAirQuality <= 50) {
+            airQualityDescription.textContent = "Very Good";
+            airQualityElement.style.color = 'darkgreen';  // Dark green for "Very Good"
+        } else if (randomAirQuality <= 100) {
+            airQualityDescription.textContent = "Good";
+            airQualityElement.style.color = 'lightgreen';  // Light green for "Good"
+        } else if (randomAirQuality <= 150) {
+            airQualityDescription.textContent = "Unhealthy";
+            airQualityElement.style.color = 'orange';  // Orange for "Unhealthy"
+        } else {
+            airQualityDescription.textContent = "Very Poor";
+            airQualityElement.style.color = 'red';  // Red for "Very Poor"
+        }
+    }
+}
+
+// Update air quality every 3 seconds
+setInterval(updateAirQuality, 3000);
+
     </script>
 </body>
 </html>
